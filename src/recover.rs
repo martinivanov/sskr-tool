@@ -12,7 +12,7 @@ pub fn recover(lines: Vec<String>, minimal: &bool) -> Result<Mnemonic, Error> {
     // Get shares from raw strings
     for line in lines {
         // Parse bytewords and strip byteword-level checksum
-        let bytes = byteword_string_to_bytes(line, minimal)?;
+        let bytes = byteword_string_to_bytes(line.trim(), minimal)?;
 
         // Unwrap data from CBOR container
         let cbor = CBOR::from_data(bytes.as_slice())?;

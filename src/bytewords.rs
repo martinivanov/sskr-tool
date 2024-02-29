@@ -23,10 +23,20 @@ static WORDS: &'static str =
      whatwhenwhizwolfworkyankyawnyellyogayurtzapszerozestzinczonezoom";
 
 lazy_static! {
-    static ref WORD_LOOKUP: HashMap<&'static str, u8> = {
+    static ref WORD_TO_INDEX_LOOKUP: HashMap<&'static str, u8> = {
         let mut lookup = HashMap::new();
         for i in 0..=255 {
             lookup.insert(index_to_byteword(i), i);
+        }
+        lookup
+    };
+
+    static ref MINIMAL_WORD_TO_WORD_LOOKUP: HashMap<String, &'static str> = {
+        let mut lookup = HashMap::new();
+        for i in 0..=255 {
+            let word = index_to_byteword(i);
+            let minimal = byteword_to_minimal_string(word);
+            lookup.insert(minimal, word);
         }
         lookup
     };
@@ -39,13 +49,35 @@ fn index_to_byteword(i: u8) -> &'static str {
 }
 
 fn byteword_to_index(word: &str) -> u8 {
-    WORD_LOOKUP[word]
+    WORD_TO_INDEX_LOOKUP[word]
 }
 
 fn byteword_checksum(bytes: &[u8]) -> [u8; 4] {
     Crc::<u32>::new(&CRC_32_ISO_HDLC)
         .checksum(bytes)
         .to_be_bytes()
+}
+
+fn byteword_minimal_string_to_byteword(input: &str) -> Result<Vec<&str>, Error> {
+    let chars = input.chars().collect::<Vec<char>>();
+    let chunks= chars
+        .chunks(2)
+        .map(|x| x.iter().collect::<String>());
+
+    let words = chunks.map(|x| {
+        match MINIMAL_WORD_TO_WORD_LOOKUP.get(&x) {
+            Some(word) => Ok(*word),
+            None => return Err(anyhow!("Not a valid byteword: \"{}\"", x)),
+        }
+    }).collect();
+
+    words
+}
+
+fn byteword_to_minimal_string(word: &str) -> String {
+    let first = word.chars().next().unwrap();
+    let last = word.chars().last().unwrap();
+    format!("{}{}", first, last)
 }
 
 pub fn byteword_string(bytes: &[u8], minimal: &bool) -> String {
@@ -55,40 +87,34 @@ pub fn byteword_string(bytes: &[u8], minimal: &bool) -> String {
 }
 
 pub fn byteword_string_no_checksum(bytes: &[u8], minimal: &bool) -> String {
-    bytes
+    let words = bytes
         .iter()
         .map(|i| {
             let btw = index_to_byteword(*i);
             if *minimal {
-                // take the first and the last letter of the byteword
-                let first = btw.chars().next().unwrap();
-                let last = btw.chars().last().unwrap();
-                format!("{}{}", first, last)
+                byteword_to_minimal_string(btw)
             } else {
                 btw.to_string()
             }
         })
-        .collect::<Vec<String>>()
-        .join(" ")
+        .collect::<Vec<String>>();
+
+    if *minimal {
+        words.join("")
+    } else {
+        words.join(" ")
+    }
 }
 
-pub fn byteword_string_to_bytes(input: String, minimal: &bool) -> Result<Vec<u8>, Error> {
-    let keys: Vec<_> = WORD_LOOKUP.keys().cloned().collect();
-    let parts = input.split(" ");
-    let words: Vec<_> = if *minimal {
-        parts.map(|x| {
-            keys.iter().find(|&&w| {
-                let first = w.chars().next().unwrap();
-                let last = w.chars().last().unwrap();
-                format!("{}{}", first, last) == x
-            }).unwrap().clone()
-        }).collect()
+pub fn byteword_string_to_bytes(input: &str, minimal: &bool) -> Result<Vec<u8>, Error> {
+    let words: Vec<&str> = if *minimal {
+        byteword_minimal_string_to_byteword(input)?
     } else {
-        parts.collect()
+        input.split(" ").collect()
     };
 
     for word in words.clone().into_iter() {
-        if !WORD_LOOKUP.contains_key(word) {
+        if !WORD_TO_INDEX_LOOKUP.contains_key(word) {
             return Err(anyhow!("Not a valid byteword: \"{}\"", word));
         }
     }
