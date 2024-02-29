@@ -48,28 +48,51 @@ fn byteword_checksum(bytes: &[u8]) -> [u8; 4] {
         .to_be_bytes()
 }
 
-pub fn byteword_string(bytes: &[u8]) -> String {
+pub fn byteword_string(bytes: &[u8], minimal: &bool) -> String {
     let checksum = byteword_checksum(bytes);
     let data_with_checksum = [bytes, &checksum].concat();
-    byteword_string_no_checksum(&data_with_checksum)
+    byteword_string_no_checksum(&data_with_checksum, minimal)
 }
 
-pub fn byteword_string_no_checksum(bytes: &[u8]) -> String {
+pub fn byteword_string_no_checksum(bytes: &[u8], minimal: &bool) -> String {
     bytes
         .iter()
-        .map(|i| index_to_byteword(*i))
-        .collect::<Vec<&str>>()
+        .map(|i| {
+            let btw = index_to_byteword(*i);
+            if *minimal {
+                // take the first and the last letter of the byteword
+                let first = btw.chars().next().unwrap();
+                let last = btw.chars().last().unwrap();
+                format!("{}{}", first, last)
+            } else {
+                btw.to_string()
+            }
+        })
+        .collect::<Vec<String>>()
         .join(" ")
 }
 
-pub fn byteword_string_to_bytes(input: String) -> Result<Vec<u8>, Error> {
-    let words = input.split(" ");
-    for word in words.clone() {
+pub fn byteword_string_to_bytes(input: String, minimal: &bool) -> Result<Vec<u8>, Error> {
+    let keys: Vec<_> = WORD_LOOKUP.keys().cloned().collect();
+    let parts = input.split(" ");
+    let words: Vec<_> = if *minimal {
+        parts.map(|x| {
+            keys.iter().find(|&&w| {
+                let first = w.chars().next().unwrap();
+                let last = w.chars().last().unwrap();
+                format!("{}{}", first, last) == x
+            }).unwrap().clone()
+        }).collect()
+    } else {
+        parts.collect()
+    };
+
+    for word in words.clone().into_iter() {
         if !WORD_LOOKUP.contains_key(word) {
             return Err(anyhow!("Not a valid byteword: \"{}\"", word));
         }
     }
-    let all_bytes = words.map(byteword_to_index).collect::<Vec<u8>>();
+    let all_bytes = words.into_iter().map(byteword_to_index).collect::<Vec<u8>>();
     if all_bytes.len() < 5 {
         return Err(anyhow!(
             "Byteword string too short (must include checksum): \"{}\"",

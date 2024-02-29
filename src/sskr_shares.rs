@@ -2,11 +2,11 @@ use crate::bytewords::*;
 use anyhow::{bail, Error};
 use sskr::METADATA_SIZE_BYTES;
 
-pub fn share_metadata(source: &[u8]) -> Result<(u16, [usize; 5]), Error> {
+pub fn share_metadata(source: &[u8], minimal: &bool) -> Result<(u16, [usize; 5]), Error> {
     if source.len() < METADATA_SIZE_BYTES {
         bail!(
             "Share is too short: \"{}\"",
-            byteword_string_no_checksum(&source)
+            byteword_string_no_checksum(&source, minimal)
         );
     }
 
@@ -16,7 +16,7 @@ pub fn share_metadata(source: &[u8]) -> Result<(u16, [usize; 5]), Error> {
     if group_threshold > group_count {
         bail!(
             "Share has invalid group threshold: \"{}\"",
-            byteword_string_no_checksum(&source)
+            byteword_string_no_checksum(&source, minimal)
         );
     }
 
@@ -27,7 +27,7 @@ pub fn share_metadata(source: &[u8]) -> Result<(u16, [usize; 5]), Error> {
     if reserved != 0 {
         bail!(
             "Share has invalid reserved bits: \"{}\"",
-            byteword_string_no_checksum(&source)
+            byteword_string_no_checksum(&source, minimal)
         );
     }
     let member_index = (source[4] & 0xf) as usize;

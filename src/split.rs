@@ -15,25 +15,27 @@ pub fn split(
     spec: &String,
     group_threshold: usize,
     phrase: &String,
+    minimal: &bool
 ) -> Result<(Mnemonic, Vec<Vec<String>>), Error> {
     let sskr_spec = parse_spec(spec, group_threshold)?;
     let mnemonic = Mnemonic::from_phrase(phrase, Language::English)?;
     let entropy = mnemonic.entropy();
     let secret = Secret::new(entropy)?;
     let groups = sskr_generate(&sskr_spec, &secret)?;
-    let byteword_groups = to_bytewords(&groups);
+    let byteword_groups = to_bytewords(&groups, minimal);
     Ok((mnemonic, byteword_groups))
 }
 
 pub fn split_random_phrase(
     spec: &String,
     group_threshold: usize,
+    minimal: &bool
 ) -> Result<(Mnemonic, Vec<Vec<String>>), Error> {
     let mnemonic = Mnemonic::new(MnemonicType::Words12, Language::English);
-    split(spec, group_threshold, &mnemonic.phrase().to_string())
+    split(spec, group_threshold, &mnemonic.phrase().to_string(), minimal)
 }
 
-fn to_bytewords(groups: &Vec<Vec<Vec<u8>>>) -> Vec<Vec<String>> {
+fn to_bytewords(groups: &Vec<Vec<Vec<u8>>>, minimal: &bool) -> Vec<Vec<String>> {
     groups
         .iter()
         .map(|shares| {
@@ -41,7 +43,7 @@ fn to_bytewords(groups: &Vec<Vec<Vec<u8>>>) -> Vec<Vec<String>> {
                 .iter()
                 .map(|share| {
                     let cbor = CBOR::tagged_value(309, CBOR::byte_string(share));
-                    byteword_string(cbor.cbor_data().as_slice())
+                    byteword_string(cbor.cbor_data().as_slice(), minimal)
                 })
                 .collect()
         })

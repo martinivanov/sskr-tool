@@ -6,13 +6,13 @@ use dcbor::CBOR;
 use sskr::sskr_combine;
 use std::collections::HashMap;
 
-pub fn recover(lines: Vec<String>) -> Result<Mnemonic, Error> {
+pub fn recover(lines: Vec<String>, minimal: &bool) -> Result<Mnemonic, Error> {
     let mut shares: Vec<Vec<u8>> = vec![];
 
     // Get shares from raw strings
     for line in lines {
         // Parse bytewords and strip byteword-level checksum
-        let bytes = byteword_string_to_bytes(line)?;
+        let bytes = byteword_string_to_bytes(line, minimal)?;
 
         // Unwrap data from CBOR container
         let cbor = CBOR::from_data(bytes.as_slice())?;
@@ -27,7 +27,7 @@ pub fn recover(lines: Vec<String>) -> Result<Mnemonic, Error> {
     let mut share_ids: Vec<u16> = vec![];
     let mut share_meta: Vec<[usize; 5]> = vec![];
     for share in shares.clone() {
-        let (id, meta) = share_metadata(&share)?;
+        let (id, meta) = share_metadata(&share, minimal)?;
         share_ids.push(id);
         share_meta.push(meta);
     }

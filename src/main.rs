@@ -43,12 +43,18 @@ enum Commands {
 
         /// A valid BIP-39 seed phrase mnemonic (12 or 24 words); random if not specified
         mnemonic: Option<String>,
+
+        #[clap(long, short)]
+        minimal: bool,
     },
 
     /// Recovers the original BIP-39 mnemonic from SSKR shares.
     Recover {
         /// The name of a file containing the SSKR shares as bytewords, one per line
         filename: String,
+
+        #[clap(long, short)]
+        minimal: bool,
     },
 }
 
@@ -58,15 +64,16 @@ fn main() {
             spec,
             group_threshold,
             mnemonic,
-        } => split(spec, group_threshold, mnemonic),
-        Commands::Recover { filename } => recover(filename),
+            minimal
+        } => split(spec, group_threshold, mnemonic, minimal),
+        Commands::Recover { filename, minimal } => recover(filename, minimal),
     }
 }
 
-fn split(spec: &String, group_threshold: &usize, mnemonic: &Option<String>) {
+fn split(spec: &String, group_threshold: &usize, mnemonic: &Option<String>, minimal: &bool) {
     let result = match mnemonic {
-        Some(phrase) => split::split(spec, *group_threshold, &phrase),
-        None => split::split_random_phrase(spec, *group_threshold),
+        Some(phrase) => split::split(spec, *group_threshold, &phrase, minimal),
+        None => split::split_random_phrase(spec, *group_threshold, minimal),
     };
 
     match result {
@@ -113,7 +120,7 @@ fn split_success(
     }
 }
 
-fn recover(filename: &String) {
+fn recover(filename: &String, minimal: &bool) {
     let file_contents = read_to_string(filename);
 
     if let Err(error) = file_contents {
@@ -123,7 +130,7 @@ fn recover(filename: &String) {
 
     let lines = file_contents.unwrap().lines().map(String::from).collect();
 
-    match recover::recover(lines) {
+    match recover::recover(lines, minimal) {
         Ok(mnemonic) => recover_success(mnemonic),
         Err(error) => {
             eprintln!("Error recovering mnemonic: {:?}", error);
